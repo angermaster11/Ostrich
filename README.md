@@ -2,6 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment variables
+
+Create `.env.local` using the template in `.env.example`:
+
+```bash
+cp .env.example .env.local
+```
+
+Required for cover search:
+
+- `UNSPLASH_ACCESS_KEY` (server-side, used by `app/api/unsplash/search/route.ts`)
+
 First, run the development server:
 
 ```bash
