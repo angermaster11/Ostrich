@@ -311,26 +311,26 @@ export default function SettingsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="flex h-full">
-      {/* Settings sidebar */}
-      <div className="w-52 shrink-0 border-r border-[var(--brd)] p-4">
-        <h2 className="text-lg font-heading font-bold mb-4 text-[var(--t)]">
+    <div className="flex flex-col md:flex-row h-full">
+      {/* Settings sidebar — horizontal scroll on mobile, vertical on desktop */}
+      <div className="md:w-52 shrink-0 md:border-r border-b md:border-b-0 border-[var(--brd)] p-3 md:p-4 overflow-x-auto">
+        <h2 className="text-lg font-heading font-bold mb-3 md:mb-4 text-[var(--t)] hidden md:block">
           Settings
         </h2>
-        <nav className="flex flex-col gap-0.5">
+        <nav className="flex md:flex-col gap-1 md:gap-0.5">
           {sections.map((section) => {
             const Icon = section.icon;
             return (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors text-left ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-[12px] md:text-[13px] font-medium transition-colors text-left whitespace-nowrap ${
                   activeSection === section.id
                     ? "bg-[var(--bg-s2)] text-[var(--t)]"
                     : "text-[var(--t2)] hover:bg-[var(--bg-s2)] hover:text-[var(--t)]"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4 shrink-0" />
                 {section.name}
               </button>
             );

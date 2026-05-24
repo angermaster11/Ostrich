@@ -67,12 +67,12 @@ export default function SignupPage() {
       <div className="hidden lg:flex flex-col justify-between w-[440px] shrink-0 p-10 bg-[var(--btn)] text-[var(--btn-t)]">
         <div className="flex items-center gap-2">
           <OstrichLogo size={34} />
-          <span className="font-heading font-bold">Ostrich</span>
+          <span className="font-heading font-bold">Ostrich - Rangam AI</span>
         </div>
 
         <div>
           <p className="text-[10px] font-semibold tracking-[2px] uppercase opacity-50 mb-3">
-            Why Ostrich?
+            Why Ostrich - Rangam AI?
           </p>
           <h2 className="font-heading text-[28px] font-extrabold leading-tight mb-6">
             Build your second brain — for free.

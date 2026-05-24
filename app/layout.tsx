@@ -4,9 +4,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Navbar } from "@/components/navbar";
 
 export const metadata: Metadata = {
-  title: "Ostrich — Your knowledge, finally connected",
+  title: "Ostrich - Rangam AI — Your knowledge, finally connected",
   description:
-    "Ostrich is the AI workspace that understands where you are — not just what you wrote. Scoped retrieval. Zero hallucination noise.",
+    "Ostrich - Rangam AI is the AI workspace that understands where you are — not just what you wrote. Scoped retrieval. Zero hallucination noise.",
   icons: {
     icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
     shortcut: [{ url: "/logo.svg" }],

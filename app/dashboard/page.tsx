@@ -106,7 +106,7 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[1100px] mx-auto px-6 py-10">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* ── Header ─────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

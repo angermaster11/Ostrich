@@ -126,7 +126,7 @@ export default function BillingPage() {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: "Ostrich",
+        name: "Ostrich - Rangam AI",
         description: `Upgrade to ${planId.replace("_", " ")}`,
         order_id: order.order_id,
         handler: async (response: any) => {

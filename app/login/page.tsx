@@ -56,7 +56,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between w-[440px] shrink-0 p-10 bg-[var(--btn)] text-[var(--btn-t)]">
         <div className="flex items-center gap-2">
           <OstrichLogo size={34} />
-          <span className="font-heading font-bold">Ostrich</span>
+          <span className="font-heading font-bold">Ostrich - Rangam AI</span>
         </div>
 
         <div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-[11px] opacity-30">© 2026 Ostrich</p>
+        <p className="text-[11px] opacity-30">© 2026 Ostrich - Rangam AI</p>
       </div>
 
       {/* Right form */}

@@ -70,11 +70,11 @@ export default function LandingPage() {
         </h1>
 
         <p className="text-[clamp(15px,1.8vw,18px)] text-[var(--t2)] max-w-xl mb-10 leading-relaxed">
-          Ostrich is the AI workspace that understands where you are — not just
+          Ostrich - Rangam AI is the AI workspace that understands where you are — not just
           what you wrote. Scoped retrieval. Zero hallucination noise.
         </p>
 
-        <div className="flex gap-3 mb-16">
+        <div className="flex flex-col sm:flex-row gap-3 mb-16">
           <Link
             href="/signup"
             className="group flex items-center gap-2 px-6 py-3 rounded-lg text-[14px] font-semibold bg-[var(--btn)] text-[var(--btn-t)] hover:bg-[var(--btn-hover)] transition-colors"
@@ -87,7 +87,7 @@ export default function LandingPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 w-full max-w-md">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-md">
           {stats.map((s) => (
             <div
               key={s.label}
@@ -104,14 +104,14 @@ export default function LandingPage() {
       <section id="features" className="py-24 px-5 max-w-5xl mx-auto">
         <div className="text-center mb-14">
           <p className="text-[11px] font-semibold tracking-[2px] uppercase text-[var(--t3)] mb-3">
-            What makes Ostrich different
+            What makes Ostrich - Rangam AI different
           </p>
           <h2 className="font-heading text-[clamp(28px,4vw,44px)] font-extrabold tracking-tight">
             Intelligence that knows where you are
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {features.map((f) => {
             const Icon = f.icon;
             return (
@@ -142,7 +142,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
               {
                 n: "01",
@@ -152,7 +152,7 @@ export default function LandingPage() {
               {
                 n: "02",
                 title: "Write, speak, or paste",
-                desc: "Use the block editor, dictate in your language, or paste content. Ostrich auto-structures everything.",
+                desc: "Use the block editor, dictate in your language, or paste content. Rangam AI auto-structures everything.",
               },
               {
                 n: "03",
@@ -186,7 +186,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
             {
               name: "Free",
@@ -282,7 +282,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
                 icon: BookOpen,
@@ -293,7 +293,7 @@ export default function LandingPage() {
               {
                 icon: Code,
                 title: "API Reference",
-                desc: "Full REST API docs for integrating Ostrich into your workflow. Auth, RAG, and chat endpoints.",
+                desc: "Full REST API docs for integrating Ostrich - Rangam AI into your workflow. Auth, RAG, and chat endpoints.",
                 link: "#",
               },
               {
@@ -336,11 +336,11 @@ export default function LandingPage() {
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {[
             {
               title: "How Hierarchy-Aware RAG eliminates noise",
-              excerpt: "Traditional RAG retrieves from everywhere. Ostrich scopes retrieval to your current position in the knowledge tree.",
+              excerpt: "Traditional RAG retrieves from everywhere. Rangam AI scopes retrieval to your current position in the knowledge tree.",
               date: "May 20, 2026",
               tag: "Engineering",
             },
@@ -352,7 +352,7 @@ export default function LandingPage() {
             },
             {
               title: "Memory that persists: beyond chat context",
-              excerpt: "How Ostrich remembers what matters across sessions using semantic embeddings and graceful forgetting.",
+              excerpt: "How Rangam AI remembers what matters across sessions using semantic embeddings and graceful forgetting.",
               date: "May 10, 2026",
               tag: "AI",
             },
@@ -404,14 +404,14 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <OstrichLogo size={28} />
-            <span className="font-heading font-bold text-sm">Ostrich</span>
+            <span className="font-heading font-bold text-sm">Ostrich - Rangam AI</span>
           </div>
           <div className="flex gap-5 text-[12px] text-[var(--t3)]">
             {["Privacy", "Terms", "Blog", "Contact"].map((l) => (
               <a key={l} href="#" className="hover:text-[var(--t)] transition-colors">{l}</a>
             ))}
           </div>
-          <p className="text-[11px] text-[var(--t3)]">© 2026 Ostrich</p>
+          <p className="text-[11px] text-[var(--t3)]">© 2026 Ostrich - Rangam AI</p>
         </div>
       </footer>
     </>

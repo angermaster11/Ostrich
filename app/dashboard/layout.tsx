@@ -609,7 +609,48 @@ export default function DashboardLayout({
       </aside>
 
       {/* ── Main content ─────────────── */}
-      <main className="flex-1 overflow-y-auto bg-[var(--bg)]">{children}</main>
+      <main className="flex-1 overflow-y-auto bg-[var(--bg)] pb-16 md:pb-0">{children}</main>
+
+      {/* ── Mobile Bottom Nav ────────── */}
+      <nav className="fixed bottom-0 inset-x-0 h-14 bg-[var(--bg)] border-t border-[var(--brd)] flex items-center justify-around px-2 z-40 md:hidden">
+        {[
+          { name: "Home", href: "/dashboard", icon: Home },
+          { name: "AI", href: "/dashboard/ai", icon: Brain },
+          { name: "Vault", href: "/dashboard/vault", icon: HardDrive },
+          { name: "Notes", href: "/dashboard", icon: Plus, action: "newNote" },
+          { name: "Settings", href: "/dashboard/settings", icon: Settings },
+        ].map((item) => {
+          if (item.action === "newNote") {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.name}
+                onClick={() => handleCreateNote()}
+                className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[var(--accent)] transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center">
+                  <Icon className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-[10px] font-medium">New</span>
+              </button>
+            );
+          }
+          const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+                active ? "text-[var(--accent)]" : "text-[var(--t3)]"
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       {/* Search Modal */}
       {searchOpen && (

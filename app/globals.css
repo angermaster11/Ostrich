@@ -1136,12 +1136,15 @@
   height: 100%;
   background: var(--sidebar);
   border-right: 1px solid var(--brd);
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   padding: 12px 0;
   z-index: 30;
   flex-shrink: 0;
+}
+@media (min-width: 768px) {
+  .icon-rail { display: flex; }
 }
 .icon-rail-top { margin-bottom: 12px; }
 .icon-rail-avatar {
@@ -1203,6 +1206,10 @@
   position: relative;
   flex-shrink: 0;
   z-index: 20;
+  display: none;
+}
+@media (min-width: 768px) {
+  .notes-panel { display: block; }
 }
 .notes-panel.closed { border-right: none; }
 .notes-panel-inner {
@@ -1238,9 +1245,12 @@
 
 .bento-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: auto;
   gap: 12px;
+}
+@media (min-width: 768px) {
+  .bento-grid { grid-template-columns: 1fr 1fr; }
 }
 .bento-card {
   border-radius: 14px;
@@ -1505,10 +1515,15 @@
    ========================================= */
 .ai-brain-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--brd);
   background: var(--bg-s);
   flex-shrink: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (min-width: 768px) {
+  .ai-brain-header { padding: 12px 20px; flex-wrap: nowrap; }
 }
 .ai-brain-logo {
   width: 36px; height: 36px;

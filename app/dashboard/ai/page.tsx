@@ -386,7 +386,7 @@ export default function AIBrainPage() {
             </div>
 
             {/* Name */}
-            <p className="mt-2 text-[14px] font-semibold text-[var(--t)]">Ostrich AI</p>
+            <p className="mt-2 text-[14px] font-semibold text-[var(--t)]">Ostrich - Rangam AI</p>
           </div>
 
           {/* Status text */}
