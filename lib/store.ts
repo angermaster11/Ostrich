@@ -11,6 +11,7 @@ export interface Note {
   icon: string | null;
   cover_url: string | null;
   is_favorite: boolean;
+  is_locked?: boolean;
   deleted_at: string | null;
   position: number;
   path: string;
@@ -39,6 +40,20 @@ export interface ChatMessage {
   content: string;
   sources?: { title: string; url: string }[];
   created_at: string;
+}
+
+export interface FeedPost {
+  id: string;
+  user_id: string;
+  title: string | null;
+  caption: string | null;
+  content: string | null;
+  created_at: string;
+  author: { id: string; full_name: string; avatar_url: string | null };
+  like_count: number;
+  liked_by_me: boolean;
+  comment_count: number;
+  follow_status: { id: string; status: "pending" | "accepted" } | null;
 }
 
 interface AppState {
@@ -76,6 +91,20 @@ interface AppState {
   removeVaultFile: (id: string) => void;
   setVaultLoading: (loading: boolean) => void;
   setUploadModalOpen: (open: boolean) => void;
+
+  // ── Feed cache ─────────────────────
+  feedFollowing: FeedPost[];
+  feedExplore: FeedPost[];
+  feedFollowingOffset: number;
+  feedExploreOffset: number;
+  feedFollowingHasMore: boolean;
+  feedExploreHasMore: boolean;
+  feedLastFetch: { following: number; explore: number };
+  setFeedPosts: (tab: "following" | "explore", posts: FeedPost[], offset: number, hasMore: boolean) => void;
+  appendFeedPosts: (tab: "following" | "explore", posts: FeedPost[], offset: number, hasMore: boolean) => void;
+  updateFeedPost: (postId: string, updates: Partial<FeedPost>) => void;
+  removeFeedPost: (postId: string) => void;
+  setFeedLastFetch: (tab: "following" | "explore") => void;
 
   // ── AI Brain ───────────────────────
   aiMessages: ChatMessage[];
@@ -120,11 +149,7 @@ export const useNotesStore = create<AppState>((set) => ({
 
   // ── Sidebar ────────────────────────
   sidebarOpen: true,
-  sidebarWidth: parseInt(
-    typeof window !== "undefined"
-      ? localStorage.getItem("sidebar-width") || "260"
-      : "260"
-  ),
+  sidebarWidth: 260,
   sidebarExpanded: false,
   searchOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -152,14 +177,43 @@ export const useNotesStore = create<AppState>((set) => ({
   setVaultLoading: (loading) => set({ vaultLoading: loading }),
   setUploadModalOpen: (open) => set({ uploadModalOpen: open }),
 
+  // ── Feed cache ─────────────────────
+  feedFollowing: [],
+  feedExplore: [],
+  feedFollowingOffset: 0,
+  feedExploreOffset: 0,
+  feedFollowingHasMore: true,
+  feedExploreHasMore: true,
+  feedLastFetch: { following: 0, explore: 0 },
+  setFeedPosts: (tab, posts, offset, hasMore) =>
+    set(tab === "following"
+      ? { feedFollowing: posts, feedFollowingOffset: offset, feedFollowingHasMore: hasMore }
+      : { feedExplore: posts, feedExploreOffset: offset, feedExploreHasMore: hasMore }),
+  appendFeedPosts: (tab, posts, offset, hasMore) =>
+    set((s) => tab === "following"
+      ? { feedFollowing: [...s.feedFollowing, ...posts], feedFollowingOffset: offset, feedFollowingHasMore: hasMore }
+      : { feedExplore: [...s.feedExplore, ...posts], feedExploreOffset: offset, feedExploreHasMore: hasMore }),
+  updateFeedPost: (postId, updates) =>
+    set((s) => ({
+      feedFollowing: s.feedFollowing.map((p) => p.id === postId ? { ...p, ...updates } : p),
+      feedExplore: s.feedExplore.map((p) => p.id === postId ? { ...p, ...updates } : p),
+    })),
+  removeFeedPost: (postId) =>
+    set((s) => ({
+      feedFollowing: s.feedFollowing.filter((p) => p.id !== postId),
+      feedExplore: s.feedExplore.filter((p) => p.id !== postId),
+    })),
+  setFeedLastFetch: (tab) =>
+    set((s) => ({ feedLastFetch: { ...s.feedLastFetch, [tab]: Date.now() } })),
+
   // ── AI Brain ───────────────────────
   aiMessages: [],
   aiSessionId: null,
   aiStreaming: false,
   aiMode: "chat",
-  aiModel: (typeof window !== "undefined" ? localStorage.getItem("ai-model") || "flash" : "flash") as "flash" | "main",
-  voiceLanguage: typeof window !== "undefined" ? localStorage.getItem("voice-language") || "hi-IN" : "hi-IN",
-  voiceSpeaker: typeof window !== "undefined" ? localStorage.getItem("voice-speaker") || "anushka" : "anushka",
+  aiModel: "flash" as "flash" | "main",
+  voiceLanguage: "hi-IN",
+  voiceSpeaker: "anushka",
   setAiMessages: (msgs) => set({ aiMessages: msgs }),
   addAiMessage: (msg) => set((s) => ({ aiMessages: [...s.aiMessages, msg] })),
   updateLastAiMessage: (content) =>

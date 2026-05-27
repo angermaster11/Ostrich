@@ -61,6 +61,16 @@ export default function SettingsPage() {
   const [workspaceName, setWorkspaceName] = useState("My Workspace");
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState("profile");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [bio, setBio] = useState("");
+
+  // Friends (follow system) state
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
+  const [followRequests, setFollowRequests] = useState<any[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
 
   // Gmail & Contacts state
   const [gmailAccounts, setGmailAccounts] = useState<GmailAccount[]>([]);
@@ -74,12 +84,23 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setMounted(true);
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setUser(data.user);
         setDisplayName(
           data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || ""
         );
+        // Load social profile
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("avatar_url, is_private, bio")
+          .eq("id", data.user.id)
+          .single();
+        if (profile) {
+          setAvatarUrl(profile.avatar_url);
+          setIsPrivate(profile.is_private || false);
+          setBio(profile.bio || "");
+        }
       }
     });
 
@@ -93,10 +114,74 @@ export default function SettingsPage() {
   const handleSaveName = async () => {
     if (!user) return;
     setSaving(true);
-    await supabase.auth.updateUser({
-      data: { full_name: displayName },
-    });
+    await supabase.auth.updateUser({ data: { full_name: displayName } });
+    // Also update user_profiles
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/social/users/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ full_name: displayName, bio, is_private: isPrivate }),
+      });
+    }
     setSaving(false);
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!user) return;
+    // Validate size (max 5MB) and type
+    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5MB"); return; }
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) { alert("Use JPG, PNG, WebP or GIF"); return; }
+
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      // Always overwrite the same path so URL stays fresh without cache issues
+      const path = `avatars/${user.id}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr.message);
+        alert(`Upload failed: ${uploadErr.message}\n\nMake sure the "avatars" bucket exists and is PUBLIC in Supabase Storage.`);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      // Cache-bust so browser doesn't show stale image
+      const url = `${urlData.publicUrl}?v=${Date.now()}`;
+
+      setAvatarUrl(url);
+
+      // Update user_profiles table
+      await supabase.from("user_profiles").upsert(
+        { id: user.id, avatar_url: url },
+        { onConflict: "id" }
+      );
+
+      // Also update auth.users metadata so avatar shows everywhere
+      await supabase.auth.updateUser({ data: { avatar_url: url } });
+    } catch (e: any) {
+      console.error("Avatar upload failed:", e);
+      alert("Upload failed. Check console for details.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handlePrivacyToggle = async (val: boolean) => {
+    setIsPrivate(val);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/social/users/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ is_private: val }),
+      });
+    }
   };
 
   const handleFontSizeChange = (size: string) => {
@@ -296,10 +381,53 @@ export default function SettingsPage() {
       loadGmailAccounts();
       loadContacts();
     }
+    if (activeSection === "friends") {
+      loadFriends();
+    }
   }, [activeSection]);
+
+  const loadFriends = async () => {
+    setFriendsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const [fwRes, fwingRes, reqRes] = await Promise.all([
+        apiFetch("/social/followers", session.access_token),
+        apiFetch("/social/following", session.access_token),
+        apiFetch("/social/follow-requests", session.access_token),
+      ]);
+      if (fwRes.ok) setFollowers(await fwRes.json());
+      if (fwingRes.ok) setFollowing(await fwingRes.json());
+      if (reqRes.ok) setFollowRequests(await reqRes.json());
+    } catch {}
+    setFriendsLoading(false);
+  };
+
+  const handleAcceptRequest = async (followerId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await apiFetch(`/social/follow-requests/${followerId}/accept`, session.access_token, { method: "POST" });
+    setFollowRequests((prev) => prev.filter((r) => r.id !== followerId));
+    loadFriends();
+  };
+
+  const handleDeclineRequest = async (followerId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await apiFetch(`/social/follow-requests/${followerId}/decline`, session.access_token, { method: "DELETE" });
+    setFollowRequests((prev) => prev.filter((r) => r.id !== followerId));
+  };
+
+  const handleUnfollow = async (userId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await apiFetch(`/social/follow/${userId}`, session.access_token, { method: "DELETE" });
+    setFollowing((prev) => prev.filter((f) => f.id !== userId));
+  };
 
   const sections = [
     { id: "profile", name: "Profile", icon: User },
+    { id: "friends", name: "Friends", icon: Users },
     { id: "appearance", name: "Appearance", icon: Palette },
     { id: "voice", name: "Voice & AI", icon: Mic },
     { id: "workspace", name: "Workspace", icon: Globe },
@@ -349,15 +477,46 @@ export default function SettingsPage() {
               </h3>
 
               <div className="settings-section">
+                {/* Avatar */}
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                    {displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
+                  <div className="relative group">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleAvatarUpload(f);
+                        }}
+                      />
+                      {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={avatarUrl}
+                          alt="Avatar"
+                          className="w-16 h-16 rounded-full object-cover border-2 border-[var(--brd2)]"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                          {displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        {uploadingAvatar ? (
+                          <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                        ) : (
+                          <span className="text-[10px] text-white font-medium">Edit</span>
+                        )}
+                      </div>
+                    </label>
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-[var(--t)]">
                       {displayName || "User"}
                     </h4>
                     <p className="text-xs text-[var(--t2)]">{user?.email}</p>
+                    <p className="text-[11px] text-[var(--t3)] mt-0.5">Click avatar to upload photo</p>
                   </div>
                 </div>
 
@@ -385,6 +544,19 @@ export default function SettingsPage() {
 
                   <div>
                     <label className="text-[13px] font-medium text-[var(--t)] block mb-1.5">
+                      Bio
+                    </label>
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      rows={2}
+                      placeholder="Tell people about yourself..."
+                      className="settings-input w-full resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[13px] font-medium text-[var(--t)] block mb-1.5">
                       Email
                     </label>
                     <div className="flex items-center gap-2">
@@ -397,7 +569,52 @@ export default function SettingsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Private account */}
+                  <div className="flex items-center justify-between py-3 border-t border-[var(--brd)]">
+                    <div>
+                      <p className="text-[13px] font-medium text-[var(--t)]">Private account</p>
+                      <p className="text-[11px] text-[var(--t3)] mt-0.5">
+                        When on, new followers must send a request
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handlePrivacyToggle(!isPrivate)}
+                      className={`relative w-10 h-6 rounded-full transition-colors ${
+                        isPrivate ? "bg-[var(--accent)]" : "bg-[var(--bg-s3)]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                          isPrivate ? "translate-x-5" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
+              </div>
+
+              {/* Billing shortcut */}
+              <div className="settings-section">
+                <h3>Billing</h3>
+                <a
+                  href="/dashboard/billing"
+                  className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-[var(--brd)] bg-[var(--bg-s1)] hover:bg-[var(--bg-s2)] transition-colors group"
+                >
+                  <span className="text-[13px] font-medium text-[var(--t)]">Manage subscription &amp; billing</span>
+                  <ChevronRight className="w-4 h-4 text-[var(--t3)] group-hover:text-[var(--t)] transition-colors" />
+                </a>
+              </div>
+
+              {/* Logout */}
+              <div className="settings-section">
+                <h3>Session</h3>
+                <button
+                  onClick={async () => { await supabase.auth.signOut(); router.push("/"); }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--brd)] text-[13px] font-medium text-[var(--t2)] hover:bg-[var(--bg-s2)] hover:text-[var(--danger)] transition-colors"
+                >
+                  <LogOut className="w-4 h-4" /> Log out
+                </button>
               </div>
             </div>
           )}
@@ -574,6 +791,109 @@ export default function SettingsPage() {
           )}
 
           {/* Account */}
+          {/* Friends */}
+          {activeSection === "friends" && (
+            <div className="animate-fadeIn">
+              <h3 className="text-lg font-heading font-bold mb-6 text-[var(--t)]">Friends</h3>
+
+              {friendsLoading ? (
+                <div className="flex items-center gap-2 py-8 text-[var(--t3)]">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
+                </div>
+              ) : (
+                <>
+                  {/* Follow Requests */}
+                  {followRequests.length > 0 && (
+                    <div className="settings-section">
+                      <h3>Follow Requests ({followRequests.length})</h3>
+                      <div className="flex flex-col gap-2">
+                        {followRequests.map((req) => (
+                          <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--brd)] bg-[var(--bg-s1)]">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
+                              {(req.full_name?.[0] || "?").toUpperCase()}
+                            </div>
+                            <span className="flex-1 text-[13px] font-medium text-[var(--t)]">{req.full_name || "Unknown"}</span>
+                            <button
+                              onClick={() => handleAcceptRequest(req.id)}
+                              className="px-3 py-1 text-[12px] font-medium rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleDeclineRequest(req.id)}
+                              className="px-3 py-1 text-[12px] font-medium rounded-lg border border-[var(--brd)] text-[var(--t2)] hover:bg-[var(--bg-s2)] transition-colors"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Followers */}
+                  <div className="settings-section">
+                    <h3>Followers ({followers.length})</h3>
+                    {followers.length === 0 ? (
+                      <p className="text-[13px] text-[var(--t3)]">No followers yet.</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {followers.map((f) => (
+                          <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--brd)] bg-[var(--bg-s1)]">
+                            {f.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={f.avatar_url} alt={f.full_name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
+                                {(f.full_name?.[0] || "?").toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-[var(--t)] truncate">{f.full_name || "Unknown"}</p>
+                              {!f.i_follow_back && (
+                                <p className="text-[11px] text-[var(--t3)]">Not following back</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Following */}
+                  <div className="settings-section">
+                    <h3>Following ({following.length})</h3>
+                    {following.length === 0 ? (
+                      <p className="text-[13px] text-[var(--t3)]">Not following anyone yet.</p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {following.map((f) => (
+                          <div key={f.id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--brd)] bg-[var(--bg-s1)]">
+                            {f.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={f.avatar_url} alt={f.full_name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-2)] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
+                                {(f.full_name?.[0] || "?").toUpperCase()}
+                              </div>
+                            )}
+                            <span className="flex-1 text-[13px] font-medium text-[var(--t)] truncate">{f.full_name || "Unknown"}</span>
+                            <button
+                              onClick={() => handleUnfollow(f.id)}
+                              className="px-3 py-1 text-[12px] font-medium rounded-lg border border-[var(--brd)] text-[var(--t2)] hover:bg-[var(--bg-s2)] hover:text-[var(--danger)] transition-colors"
+                            >
+                              Unfollow
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {activeSection === "account" && (
             <div className="animate-fadeIn">
               <h3 className="text-lg font-heading font-bold mb-6 text-[var(--t)]">

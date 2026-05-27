@@ -4,10 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
-  FolderGit2,
-  Bot,
   Settings,
-  LogOut,
   Plus,
   Search,
   Star,
@@ -18,12 +15,9 @@ import {
   MoreHorizontal,
   PanelLeftClose,
   PanelLeft,
-  ChevronsUpDown,
-  HardDrive,
+  Rss,
   Brain,
-  Mic,
-  Sparkles,
-  CreditCard,
+  MessageSquare,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -37,11 +31,10 @@ import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 
 const navItems = [
-  { name: "Home", href: "/dashboard", icon: Home },
-  { name: "Vault", href: "/dashboard/vault", icon: HardDrive },
+  { name: "Feed", href: "/dashboard/feed", icon: Home },
+  { name: "Notes", href: "/dashboard/notes", icon: FileText },
+  { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "AI Brain", href: "/dashboard/ai", icon: Brain },
-  { name: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
-  { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
 ];
 
 export default function DashboardLayout({
@@ -64,6 +57,7 @@ export default function DashboardLayout({
   } | null>(null);
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
   const [panelHovered, setPanelHovered] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const {
     notes,
@@ -84,10 +78,32 @@ export default function DashboardLayout({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
 
-  // Load user
+  // Sync localStorage → store (client-only, after hydration)
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    const w = localStorage.getItem("sidebar-width");
+    if (w) setSidebarWidth(parseInt(w));
+    const model = localStorage.getItem("ai-model");
+    if (model === "flash" || model === "main") useNotesStore.getState().setAiModel(model);
+    const lang = localStorage.getItem("voice-language");
+    if (lang) useNotesStore.getState().setVoiceLanguage(lang);
+    const speaker = localStorage.getItem("voice-speaker");
+    if (speaker) useNotesStore.getState().setVoiceSpeaker(speaker);
+  }, []);
+
+  // Load user + avatar
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
+      if (data.user) {
+        // Try user_profiles first, fallback to auth metadata
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("avatar_url")
+          .eq("id", data.user.id)
+          .single();
+        const url = profile?.avatar_url || data.user.user_metadata?.avatar_url || null;
+        setAvatarUrl(url);
+      }
     });
   }, [supabase]);
 
@@ -410,18 +426,28 @@ export default function DashboardLayout({
       <div className="icon-rail shrink-0">
         {/* User avatar */}
         <div className="icon-rail-top">
-          <div
-            className="icon-rail-avatar"
-            title={user?.user_metadata?.full_name || user?.email || "User"}
-          >
-            {user?.email?.[0]?.toUpperCase() || "O"}
-          </div>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt="avatar"
+              className="icon-rail-avatar object-cover"
+              title={user?.user_metadata?.full_name || user?.email || "User"}
+            />
+          ) : (
+            <div
+              className="icon-rail-avatar"
+              title={user?.user_metadata?.full_name || user?.email || "User"}
+            >
+              {(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || "?").toUpperCase()}
+            </div>
+          )}
         </div>
 
         {/* Nav icons */}
         <nav className="icon-rail-nav">
           {navItems.map((item) => {
-            const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+            const active = pathname === item.href || pathname?.startsWith(item.href + "/");
             const Icon = item.icon;
             return (
               <Link
@@ -436,14 +462,6 @@ export default function DashboardLayout({
           })}
 
           <div className="icon-rail-divider" />
-
-          <button
-            className="icon-rail-btn"
-            onClick={() => setSearchOpen(true)}
-            title="Search (⌘K)"
-          >
-            <Search className="w-[18px] h-[18px]" />
-          </button>
 
           <button
             className="icon-rail-btn"
@@ -470,18 +488,11 @@ export default function DashboardLayout({
         <div className="icon-rail-bottom">
           <Link
             href="/dashboard/settings"
-            className="icon-rail-btn"
+            className={`icon-rail-btn ${pathname?.startsWith("/dashboard/settings") ? "active" : ""}`}
             title="Settings"
           >
             <Settings className="w-[18px] h-[18px]" />
           </Link>
-          <button
-            className="icon-rail-btn"
-            onClick={handleLogout}
-            title="Log out"
-          >
-            <LogOut className="w-[18px] h-[18px]" />
-          </button>
         </div>
       </div>
 
@@ -614,10 +625,10 @@ export default function DashboardLayout({
       {/* ── Mobile Bottom Nav ────────── */}
       <nav className="fixed bottom-0 inset-x-0 h-14 bg-[var(--bg)] border-t border-[var(--brd)] flex items-center justify-around px-2 z-40 md:hidden">
         {[
-          { name: "Home", href: "/dashboard", icon: Home },
-          { name: "AI", href: "/dashboard/ai", icon: Brain },
-          { name: "Vault", href: "/dashboard/vault", icon: HardDrive },
-          { name: "Notes", href: "/dashboard", icon: Plus, action: "newNote" },
+          { name: "Feed", href: "/dashboard/feed", icon: Home },
+          { name: "Notes", href: "/dashboard/notes", icon: FileText },
+          { name: "New", href: "/dashboard/notes", icon: Plus, action: "newNote" },
+          { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
           { name: "Settings", href: "/dashboard/settings", icon: Settings },
         ].map((item) => {
           if (item.action === "newNote") {
@@ -635,7 +646,7 @@ export default function DashboardLayout({
               </button>
             );
           }
-          const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
             <Link

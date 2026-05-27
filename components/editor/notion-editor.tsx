@@ -27,6 +27,10 @@ import {
   Heading1,
   Heading2,
   Palette,
+  Send,
+  FileText,
+  FileImage,
+  FilePlus,
 } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
 import { useNotesStore } from "@/lib/store";
@@ -48,6 +52,7 @@ interface EditorProps {
   initialCover?: string;
   initialEmoji?: string;
   parentTitle?: string;
+  readOnly?: boolean;
   onSave: (data: {
     title: string;
     content: string;
@@ -55,6 +60,9 @@ interface EditorProps {
     emoji?: string;
   }) => Promise<void>;
   onEditorReady?: (editor: Editor) => void;
+  onPost?: (title: string, content: string) => Promise<void>;
+  onAddChild?: () => void;
+  onUploadAttachment?: (file: File) => Promise<void>;
 }
 
 import SlashCommand from "./slash-extension";
@@ -74,8 +82,12 @@ export function NotionEditor({
   initialCover,
   initialEmoji,
   parentTitle,
+  readOnly = false,
   onSave,
   onEditorReady,
+  onPost,
+  onAddChild,
+  onUploadAttachment,
 }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [cover, setCover] = useState(initialCover || "");
@@ -90,6 +102,10 @@ export function NotionEditor({
   const [showTemplates, setShowTemplates] = useState(
     !initialContent || initialContent === "<p></p>"
   );
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [tableHover, setTableHover] = useState<{
     x: number;
     y: number;
@@ -167,6 +183,7 @@ export function NotionEditor({
 
   const editor = useEditor({
     immediatelyRender: true,
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         codeBlock: false,
@@ -238,10 +255,25 @@ export function NotionEditor({
     }
   }, [editor, onEditorReady]);
 
+  // Sync readOnly changes at runtime (lock/unlock)
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   // Sync metadata changes
   useEffect(() => {
     debouncedSave(title, editor?.getHTML() || "", cover, emoji);
   }, [title, cover, emoji]);
+
+  // Close add menu on outside click
+  useEffect(() => {
+    if (!showAddMenu) return;
+    const handler = (e: MouseEvent) => setShowAddMenu(false);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showAddMenu]);
 
   // Close pickers on outside click
   useEffect(() => {
@@ -404,24 +436,109 @@ export function NotionEditor({
           </span>
         </div>
 
-        <div className="save-status">
-          {saveStatus === "saving" && (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--t3)]" />
-              <span>Saving...</span>
-            </>
+        <div className="flex items-center gap-2">
+          {/* + Add Content Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAddMenu((v) => !v)}
+              className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-lg border border-[var(--brd2)] text-[var(--t2)] hover:bg-[var(--bg-s2)] hover:text-[var(--t)] transition-colors"
+              title="Add content"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add
+            </button>
+            {showAddMenu && (
+              <div className="absolute right-0 top-8 w-48 rounded-xl border border-[var(--brd)] bg-[var(--bg)] shadow-xl z-50 py-1 overflow-hidden">
+                {onAddChild && (
+                  <button
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[var(--t)] hover:bg-[var(--bg-s2)] transition-colors"
+                    onClick={() => { setShowAddMenu(false); onAddChild(); }}
+                  >
+                    <FilePlus className="w-4 h-4 text-[var(--accent)]" />
+                    New child note
+                  </button>
+                )}
+                {onUploadAttachment && (
+                  <>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[var(--t)] hover:bg-[var(--bg-s2)] transition-colors"
+                      onClick={() => { setShowAddMenu(false); imageInputRef.current?.click(); }}
+                    >
+                      <FileImage className="w-4 h-4 text-[var(--accent-2)]" />
+                      Upload image
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[var(--t)] hover:bg-[var(--bg-s2)] transition-colors"
+                      onClick={() => { setShowAddMenu(false); fileInputRef.current?.click(); }}
+                    >
+                      <FileText className="w-4 h-4 text-[var(--accent-3)]" />
+                      Upload document
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {/* Hidden file inputs */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              className="hidden"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && onUploadAttachment) { onUploadAttachment(f); e.target.value = ""; }
+              }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.docx,.txt"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && onUploadAttachment) { onUploadAttachment(f); e.target.value = ""; }
+              }}
+            />
+          </div>
+
+          {/* Post button */}
+          {onPost && (
+            <button
+              disabled={posting}
+              onClick={async () => {
+                setPosting(true);
+                try {
+                  await onPost(title, editor?.getHTML() || "");
+                } finally {
+                  setPosting(false);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 text-[12px] font-semibold rounded-lg bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              Post
+            </button>
           )}
-          {saveStatus === "saved" && (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] inline-block" />
-              <span className="text-[var(--success)]">Saved</span>
-            </>
-          )}
-          {saveStatus === "idle" && lastSavedAt && (
-            <span title={lastSavedAt.toLocaleString()}>
-              Edited {dayjs(lastSavedAt).fromNow()}
-            </span>
-          )}
+
+          <div className="save-status">
+            {saveStatus === "saving" && (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--t3)]" />
+                <span>Saving...</span>
+              </>
+            )}
+            {saveStatus === "saved" && (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] inline-block" />
+                <span className="text-[var(--success)]">Saved</span>
+              </>
+            )}
+            {saveStatus === "idle" && lastSavedAt && (
+              <span title={lastSavedAt.toLocaleString()}>
+                Edited {dayjs(lastSavedAt).fromNow()}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
