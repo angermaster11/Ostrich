@@ -251,10 +251,19 @@ export default function NotePage({
       });
       if (res.ok) {
         const data = await res.json();
-        setCopilotMessages((prev) => [...prev, { role: "assistant", content: data.reply || data.content || "..." }]);
+        setCopilotMessages((prev) => [...prev, { role: "assistant", content: data.reply || data.content || "No response received." }]);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setCopilotMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `⚠️ ${errData.detail || errData.message || "Failed to get AI response."}` },
+        ]);
       }
-    } catch {
-      setCopilotMessages((prev) => [...prev, { role: "assistant", content: "Could not connect to AI." }]);
+    } catch (err: any) {
+      setCopilotMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `⚠️ Could not connect to AI (${err?.message || "network error"}).` },
+      ]);
     } finally {
       setCopilotLoading(false);
     }
