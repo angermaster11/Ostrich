@@ -225,7 +225,6 @@ export default function AIBrainPage() {
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
           headers: {
             "Content-Type": "application/json",
             "ngrok-skip-browser-warning": "true",
