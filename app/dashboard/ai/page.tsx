@@ -226,6 +226,11 @@ export default function AIBrainPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+            Authorization: `Bearer ${session.access_token}`
+          },
           body: JSON.stringify({ query, session_id: aiSessionId, model: useNotesStore.getState().aiModel }),
         }
       );
